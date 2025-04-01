@@ -1,0 +1,102 @@
+<?php
+require __DIR__ . '/../../model/database.php';
+
+header('Content-Type: application/json');
+
+$db = getDatabaseConnection();
+
+if (isset($_SERVER['PATH_INFO'])) {
+    $req_path = $_SERVER['PATH_INFO'];
+    $req_data = explode('/', $req_path);
+}
+
+$req_type = $_SERVER['REQUEST_METHOD'];
+
+if ($req_type == 'GET') {
+    if (isset($req_data[1]) && $req_data[1] == 'verin') {
+        if (isset($req_data[2])) {
+            $req = "SELECT * FROM verin WHERE verin_id = ?";
+            $stmt = $db->prepare($req);
+            $stmt->execute([$req_data[2]]);
+        } else {
+            $req = "SELECT * FROM verin";
+            $stmt = $db->prepare($req);
+            $stmt->execute();
+        }
+        $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode($data);
+    }
+    elseif (isset($req_data[1]) && $req_data[1] == 'user') {
+        if (isset($req_data[2])) {
+            $req = "SELECT user_id, first_name, last_name, email, created_at FROM user WHERE user_id = ?";
+            $stmt = $db->prepare($req);
+            $stmt->execute([$req_data[2]]);
+            $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode($data);
+        }
+    }
+    elseif (isset($req_data[1]) && $req_data[1] == 'date') {
+        if (isset($req_data[2]) && isset($req_data[3])) {
+            $req = "SELECT * FROM sensor_data WHERE created_at BETWEEN ? AND ? ORDER BY created_at DESC";
+            $stmt = $db->prepare($req);
+            $stmt->execute([$req_data[2], $req_data[3]]);
+            $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode($data);
+        }
+    }
+    elseif (isset($req_data[1]) && $req_data[1] == 'state') {
+        if (in_array($req_data[2], ['normal', 'fuite', 'alerte', 'anormal'])) {
+            $req = "SELECT * FROM sensor_data WHERE state = ? ORDER BY created_at DESC LIMIT 50";
+            $stmt = $db->prepare($req);
+            $stmt->execute([$req_data[2]]);
+            $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode($data);
+        }
+    }
+    elseif (isset($req_data[1]) && $req_data[1] == 'speed') {
+        if (isset($req_data[2]) && is_numeric($req_data[2])) {
+            $req = "SELECT * FROM sensor_data WHERE travel_time_left_right <= ? OR travel_time_right_left <= ? ORDER BY created_at DESC";
+            $stmt = $db->prepare($req);
+            $stmt->execute([$req_data[2], $req_data[2]]);
+            $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode($data);
+        }
+    }
+}
+------------------------------------
+
+Voici les URLs pour toutes les API que j'ai ajoutées :
+
+Récupérer tous les vérins :
+
+GET https://172.18.110.105/festo/src/backend/rest.php/verin
+
+Récupérer un vérin spécifique (par verin_id) :
+
+GET https://172.18.110.105/festo/src/backend/rest.php/verin/{verin_id}
+
+Exemple : GET https://172.18.110.105/festo/src/backend/rest.php/verin/1
+
+Récupérer un utilisateur spécifique (par user_id) :
+
+GET https://172.18.110.105/festo/src/backend/rest.php/user/{user_id}
+
+Exemple : GET https://172.18.110.105/festo/src/backend/rest.php/user/1
+
+Récupérer des données de capteurs filtrées par intervalle de dates :
+
+GET https://172.18.110.105/festo/src/backend/rest.php/date/{start_date}/{end_date}
+
+Exemple : GET https://172.18.110.105/festo/src/backend/rest.php/date/2024-03-01/2024-03-24
+
+Récupérer des données de capteurs filtrées par état :
+
+GET https://172.18.110.105/festo/src/backend/rest.php/state/{state}
+
+Exemple : GET https://172.18.110.105/festo/src/backend/rest.php/state/fuite
+
+Récupérer des données de capteurs filtrées par vitesse (par travel_time_left_right ou travel_time_right_left) :
+
+GET https://172.18.110.105/festo/src/backend/rest.php/speed/{max_speed}
+
+Exemple : GET https://172.18.110.105/festo/src/backend/rest.php/speed/5.0 (pour une vitesse maximale de 5.0)
