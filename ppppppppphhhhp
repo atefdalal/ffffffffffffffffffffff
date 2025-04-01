@@ -100,3 +100,74 @@ Récupérer des données de capteurs filtrées par vitesse (par travel_time_left
 GET https://172.18.110.105/festo/src/backend/rest.php/speed/{max_speed}
 
 Exemple : GET https://172.18.110.105/festo/src/backend/rest.php/speed/5.0 (pour une vitesse maximale de 5.0)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<?php
+require __DIR__ . '/../../model/database.php';
+require __DIR__ . '/../../vendor/autoload.php';
+require 'mqtt-config.php'; 
+
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../../');
+$dotenv->load();
+
+header('Content-Type: application/json');
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $topic = $_POST['topic'];
+    $action = $_POST['action'];
+
+    $messageActionner = "gAAAAABn2tlS8Nh50F32_VFUnLiZlEk72qc46ER2mt6rf1AHn4-GpJLinccofBSmFRMU2_nTxJ6lMJPv7d1MEpPApFpKrhoOW2xVoFL4eNUc4u84v6S2aIk="; 
+    $messageStop = "gAAAAABn0ZiRRZ0jQf7jJiJH-aVCXha89K4j4JkOu12doCLnZuthK6OsBGCjvVVyVztZajXsR4vCrgtH98whwbzC2ddXGescfsQRyo1OearukDj1WltVk6k=";
+
+    $mqttServer = $_ENV['MQTT_SERVER'];
+    $mqttPort = $_ENV['MQTT_PORT'];
+    $mqttUsername = $_ENV['MQTT_USERNAME'];
+    $mqttPassword = $_ENV['MQTT_PASSWORD'];
+
+    $mqtt = getMqttClient($mqttServer, $mqttPort, $mqttUsername, $mqttPassword);
+
+    try {
+        if ($action === 'actionner') {
+            $mqtt->publish($topic, $messageActionner, 0);
+        } elseif ($action === 'arreter') {
+            $mqtt->publish($topic, $messageStop, 0);
+        }
+        $mqtt->disconnect();
+
+        // Lancer le listener en arrière-plan s'il ne tourne pas déjà
+        $output = [];
+        exec("ps aux | grep php-mqtt-listener.php | grep -v grep", $output);
+        if (count($output) === 0) {
+            exec("php /var/www/html/festo/php-mqtt-listener.php > /dev/null 2>&1 &");
+        }
+
+        echo json_encode(["status" => "success", "message" => "Message envoyé et listener activé si nécessaire."]);
+    } catch (Exception $e) {
+        echo json_encode(["status" => "error", "message" => "Erreur MQTT : " . $e->getMessage()]);
+    }
+} else {
+    echo json_encode(["status" => "error", "message" => "Méthode non autorisée."]);
+}
+
